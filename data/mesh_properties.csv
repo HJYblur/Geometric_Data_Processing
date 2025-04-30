@@ -1,0 +1,6 @@
+file,boundary_loops,connected_components,genus,volume
+two-tori.obj,0,2,,2.3494
+double-torus.obj,0,1,2,2.3324
+half-torus.obj,2,1,0,
+bagel-cut-torus.obj,4,2,0,
+half-bagel-cut-torus.obj,2,1,,

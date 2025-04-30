@@ -1,0 +1,20 @@
+[project]
+name = "geometric-data-proc"
+version = "0.1.0"
+description = "Assignments for Geometric Data Processing"
+readme = "README.md"
+requires-python = "==3.11.*"
+
+# These will be installed for use in Blender
+dependencies = [
+    "numpy~=1.26.4",
+    "scipy>=1.15.2",
+]
+
+# These are only needed outside of blender
+[dependency-groups]
+dev = [
+    "bpy>=4.4.0", # (bpy is automatically available within blender)
+    "pytest>=8.3.5",
+    "tomlkit>=0.13.2",
+]
