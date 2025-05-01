@@ -17,4 +17,9 @@ def mesh_genus(mesh: bmesh.types.BMesh) -> int:
     :return: The genus of the mesh, as an integer.
     """
     # TODO: This should return the genus of the mesh
-    return 0
+
+    V = len(mesh.verts)
+    E = len(mesh.edges)
+    F = len(mesh.faces)
+
+    return 1 - (V - E + F) / 2
