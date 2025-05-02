@@ -2,6 +2,10 @@ import bmesh
 import numpy as np
 
 
+def signed_volume_tetrahedron(p1, p2, p3):
+    return np.dot(p1, np.cross(p2, p3)) / 6.0
+
+
 # !!! This function will be used for automatic grading, don't edit the signature !!!
 def mesh_volume(mesh: bmesh.types.BMesh) -> float:
     """
@@ -20,4 +24,9 @@ def mesh_volume(mesh: bmesh.types.BMesh) -> float:
     bmesh.ops.triangulate(mesh, faces=mesh.faces)
 
     # TODO: Return the volume of the mesh (without using Blender's built-in functionality)
-    return 0.0
+    sum_volume = 0
+    for tri in mesh.faces:
+        sum_volume += signed_volume_tetrahedron(
+            tri.verts[0].co, tri.verts[1].co, tri.verts[2].co
+        )
+    return sum_volume
