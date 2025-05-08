@@ -120,6 +120,7 @@ venv.bak/
 # mkdocs documentation
 /site
 
+
 # mypy
 .mypy_cache/
 .dmypy.json
@@ -138,7 +139,9 @@ dmypy.json
 cython_debug/
 
 # Custom
+.idea/
 uv.lock
 .wheels/
+util.py
 settings.json
 assignment1/blender_manifest.toml 
