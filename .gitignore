@@ -139,7 +139,6 @@ cython_debug/
 
 # Custom
 uv.lock
-util.py
 .wheels/
 settings.json
 assignment1/blender_manifest.toml 
