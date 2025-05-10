@@ -18,5 +18,17 @@ def mesh_boundary_loops(mesh: bmesh.types.BMesh) -> list[set[bmesh.types.BMEdge]
     :return: A list of boundary loops, each of which is a set of `BMEdge`s.
     """
     # TODO: Find the boundary loops of the mesh
-
-    return list(set())
+    visit = {}
+    def dfs(edge: bmesh.types.BMEdge) -> set[bmesh.types.BMEdge]:
+        visit[edge.index] = True
+        cur_boundary = set([edge])
+        for v in edge.verts:
+            for e in v.link_edges:
+                if e.index not in visit and e.is_boundary:
+                    cur_boundary.update(dfs(e))
+        return cur_boundary
+    res = []
+    for edge in mesh.edges:
+        if edge.index not in visit and edge.is_boundary:
+            res.append(dfs(edge))
+    return res

@@ -22,5 +22,27 @@ def mesh_connected_components(mesh: bmesh.types.BMesh) -> List[Set[bmesh.types.B
     :return: A list of connected components, each of which is a set of `BMVert`s.
     """
     # TODO: Find the connected components of the mesh
+    res_dict = {}
+    num_comp = 0
 
-    return list(set())
+    def bfs(init_v: bmesh.types.BMVert):
+        vqueue = [init_v]
+        while vqueue:
+            v = vqueue.pop(0)
+            for e in v.link_edges:
+                for vert in e.verts:
+                    if vert.index not in res_dict:
+                        res_dict[vert.index] = num_comp
+                        vqueue.append(vert)
+
+    for v in mesh.verts:
+        if v.index not in res_dict:
+            res_dict[v.index] = num_comp
+            bfs(v)
+            num_comp += 1
+
+    res = [set() for _ in range(num_comp)]
+    for v in mesh.verts:
+        res[res_dict[v.index]].add(v)
+
+    return res
