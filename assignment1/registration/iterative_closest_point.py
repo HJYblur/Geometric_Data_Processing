@@ -16,12 +16,12 @@ def numpy_verts(mesh: bmesh.types.BMesh) -> np.ndarray:
     :param mesh: The BMesh to extract the vertices of.
     :return: A numpy array of shape [n, 3], where array[i, :] is the x, y, z coordinate of vertex i.
     """
-    data = bpy.data.meshes.new('tmp')
+    data = bpy.data.meshes.new("tmp")
     mesh.to_mesh(data)
     # Explained here:
     # https://blog.michelanders.nl/2016/02/copying-vertices-to-numpy-arrays-in_4.html
     vertices = np.zeros(len(mesh.verts) * 3, dtype=np.float64)
-    data.vertices.foreach_get('co', vertices)
+    data.vertices.foreach_get("co", vertices)
     return vertices.reshape([len(mesh.verts), 3])
 
 
@@ -32,18 +32,16 @@ def numpy_normals(mesh: bmesh.types.BMesh) -> np.ndarray:
     :param mesh: The BMesh to extract the normals of.
     :return: A numpy array of shape [n, 3], where array[i, :] is the x, y, z normal of vertex i.
     """
-    data = bpy.data.meshes.new('tmp')
+    data = bpy.data.meshes.new("tmp")
     mesh.to_mesh(data)
     normals = np.zeros(len(mesh.verts) * 3, dtype=np.float64)
-    data.vertices.foreach_get('normal', normals)
+    data.vertices.foreach_get("normal", normals)
     return normals.reshape([len(mesh.verts), 3])
 
 
 # !!! This function will be used for automatic grading, don't edit the signature !!!
 def point_to_point_transformation(
-        source_points: np.ndarray,
-        destination_points: np.ndarray,
-        **kwargs
+    source_points: np.ndarray, destination_points: np.ndarray, **kwargs
 ) -> mathutils.Matrix:
     """
     Given a set of point-pairs, finds an approximate transformation to register source points to destination points.
@@ -70,15 +68,15 @@ def point_to_point_transformation(
     # TODO: Find a translation based on the rotated centroid (and not the original)
 
     # TODO: Return the combined matrix
-    return mathutils.Matrix(4)
+    return mathutils.Matrix.Identity(4)
 
 
 # !!! This function will be used for automatic grading, don't edit the signature !!!
 def point_to_plane_transformation(
-        source_points: np.ndarray,
-        destination_points: np.ndarray,
-        destination_normals: np.ndarray,
-        **kwargs
+    source_points: np.ndarray,
+    destination_points: np.ndarray,
+    destination_normals: np.ndarray,
+    **kwargs,
 ) -> mathutils.Matrix:
     """
     Given a set of point-pairs, finds an approximate transformation to register source points to destination points.
@@ -105,16 +103,19 @@ def point_to_plane_transformation(
 
 # !!! This function will be used for automatic grading, don't edit the signature !!!
 def closest_point_registration(
-        source: bmesh.types.BMesh, destination: bmesh.types.BMesh,
-        k: float, num_points: int,
-        distance_metric: str = "POINT_TO_POINT",
-        **kwargs
+    source: bmesh.types.BMesh,
+    destination: bmesh.types.BMesh,
+    k: float,
+    num_points: int,
+    distance_metric: str = "POINT_TO_POINT",
+    **kwargs,
 ) -> mathutils.Matrix:
     """
     Given a pair of meshes, finds an approximate transformation to register the source mesh to the destination.
     (This is one iteration of the rigid registration process)
 
     First, we randomly select some points from both meshes (determined by num_points).
+
     Next, we find the nearest point in the destination point selection for each point in the source selection.
     From these pairings, we find the median distance between source points and their associated destinations.
 
@@ -143,25 +144,65 @@ def closest_point_registration(
              this version of rigid registration should not re-scale the source mesh.
     """
     # TODO: Find a transformation matrix which moves the source mesh closer to the destination mesh
+    # TODO: Read the parameters from the command line
 
+    # DONE: Select some points from both meshes
+    source_points = numpy_verts(source)
+    destination_points = numpy_verts(destination)
+    assert len(source_points) == len(
+        destination_points
+    ), "Source and destination meshes must have the same number of vertices"
 
     # HINT: Make sure not to select more points than are in the mesh or fewer than one point
+    num_points = np.clip(num_points, 1, len(source_points))
 
-    # TODO: Select some points from both meshes
+    random_list = random.sample(range(num_points), num_points)
+    selected_source_points = source_points[random_list]  # [num_points, 3]
+    selected_destination_points = destination_points[random_list]
 
-    # TODO: Get the nearest destination point for each source point
-    # HINT: scipy.spatial.KDTree makes this much faster!
+    # DONE: Get the nearest destination point for each source point
+    # DONE: HINT: scipy.spatial.KDTree makes this much faster!
 
-    # TODO: Reject outlier point-pairs
+    method = "brute_force"  # "brute-force" or "kdtree"
+    if method == "brute_force":
+        for i in range(len(selected_source_points)):
+            distances = np.linalg.norm(
+                selected_source_points[i] - selected_destination_points, axis=1
+            )
+            min_index = np.argmin(distances)
+            selected_destination_points[i] = selected_destination_points[min_index]
+    else:
+        k_neighbors = 1
+        tree = scipy.spatial.KDTree(selected_destination_points)
+        _, indices = tree.query(selected_source_points, k=k_neighbors)
+        selected_destination_points = selected_destination_points[indices]
+
+    # DONE: Reject outlier point-pairs
+    k_outlier = 3
+    distances = np.linalg.norm(
+        selected_source_points - selected_destination_points, axis=1
+    )
+    median_distance = np.median(distances)
+    threshold = k_outlier * median_distance
+    print(
+        f"Median distance: {median_distance}, Threshold for rejecting outlier point-pairs: {threshold}"
+    )
+    selected_source_points = selected_source_points[distances < threshold]
+    selected_destination_points = selected_destination_points[distances < threshold]
 
     # Estimate a transformation based on the selected point-pairs
     if distance_metric == "POINT_TO_POINT":
-        # TODO: call point_to_point_transformation() on your selected source and destination points
-        return mathutils.Matrix.LocRotScale(
-            mathutils.Vector(numpy.random.uniform(low=-0.1, high=0.1, size=[3])),
-            mathutils.Matrix(numpy.random.uniform(low=-1, high=1, size=[4, 4])).to_quaternion(),
-            mathutils.Vector([1, 1, 1]),
+        # DONE: call point_to_point_transformation() on your selected source and destination points
+        return point_to_point_transformation(
+            selected_source_points, selected_destination_points
         )
+        # return mathutils.Matrix.LocRotScale(
+        #     mathutils.Vector(numpy.random.uniform(low=-0.1, high=0.1, size=[3])),
+        #     mathutils.Matrix(
+        #         numpy.random.uniform(low=-1, high=1, size=[4, 4])
+        #     ).to_quaternion(),
+        #     mathutils.Vector([1, 1, 1]),
+        # )
 
     elif distance_metric == "POINT_TO_PLANE":
         raise NotImplementedError("Implement point-to-plant estimation")
@@ -171,11 +212,14 @@ def closest_point_registration(
 
 # !!! This function will be used for automatic grading, don't edit the signature !!!
 def iterative_closest_point_registration(
-        source: bmesh.types.BMesh, destination: bmesh.types.BMesh,
-        k: float, num_points: int,
-        iterations: int, epsilon: float,
-        distance_metric: str = "POINT_TO_POINT",
-        **kwargs
+    source: bmesh.types.BMesh,
+    destination: bmesh.types.BMesh,
+    k: float,
+    num_points: int,
+    iterations: int,
+    epsilon: float,
+    distance_metric: str = "POINT_TO_POINT",
+    **kwargs,
 ) -> list[mathutils.Matrix]:
     """
     Iterative Closest Point (ICP) registration algorithm.
@@ -205,10 +249,7 @@ def iterative_closest_point_registration(
 
         # Find a transformation which moves the source mesh closer to the target mesh
         transformation = closest_point_registration(
-            source, destination,
-            k, num_points,
-            distance_metric,
-            **kwargs
+            source, destination, k, num_points, distance_metric, **kwargs
         )
 
         # Check for early-stopping (transformation is very similar to identity)
