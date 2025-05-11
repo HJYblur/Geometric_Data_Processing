@@ -59,16 +59,39 @@ def point_to_point_transformation(
     if len(source_points) == 0 or source_points.shape != destination_points.shape:
         return mathutils.Matrix.Identity(4)
 
-    # TODO: Move both point clouds to the origin by finding their centroids
+    # DONE: Move both point clouds to the origin by finding their centroids
+    source_centroid = np.mean(source_points, axis=0)
+    destination_centroid = np.mean(destination_points, axis=0)
+    source_points -= source_centroid
+    destination_points -= destination_centroid
+    # print("Source points shape: ", source_points.shape)
+    # print("Destination points shape: ", destination_points.shape)
 
-    # TODO: Find the covariance between the source and destination coordinates
+    # DONE: Find the covariance between the source and destination coordinates
+    covariance = source_points.T @ destination_points
+    # print("Covariance matrix: \n", covariance.shape)
 
-    # TODO: Find a rotation matrix using SVD
+    # DONE: Find a rotation matrix using SVD
+    # M = U D V^h
+    # R = V^h (det(VU^h)) U^h
+    u, _, vh = np.linalg.svd(covariance)
+    v = vh.T
+    middle = np.eye(3)
+    middle[2, 2] = np.linalg.det(v @ u.T)
+    rotation_matrix = v @ middle @ u.T
 
-    # TODO: Find a translation based on the rotated centroid (and not the original)
+    # DONE: Find a translation based on the rotated centroid (and not the original)
+    translation = destination_centroid - rotation_matrix @ source_centroid
 
-    # TODO: Return the combined matrix
-    return mathutils.Matrix.Identity(4)
+    # DONE: Return the combined matrix
+    transformation = mathutils.Matrix.Identity(4)
+    for i in range(3):
+        for j in range(3):
+            transformation[i][j] = rotation_matrix[i][j]
+        transformation[i][3] = translation[i]
+    print("Transformation matrix: \n", transformation)
+    return transformation
+    # return mathutils.Matrix.Identity(4)
 
 
 # !!! This function will be used for automatic grading, don't edit the signature !!!
