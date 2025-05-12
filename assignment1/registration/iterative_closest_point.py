@@ -121,7 +121,52 @@ def point_to_plane_transformation(
     """
 
     # TODO: Implement a version of the ICP algorithm based on point-to-plane distances
-    return mathutils.Matrix(4)
+
+    # p -> source pts
+    # n -> normals
+    # q -> dst pts
+
+    vertices_size = len(source_points)
+    a = np.zeros((vertices_size, 6))  # (8, 6)
+    a[:, 0:3] = np.cross(source_points, destination_normals)
+    a[:, 3:6] = destination_normals
+    A = a.T @ a
+    print("A: ", A.shape)
+
+    c = np.zeros(vertices_size)  # (8, )
+    for i in range(vertices_size):
+        c[i] = np.dot(
+            (source_points[i] - destination_points[i]), destination_normals[i].T
+        )
+    # c = np.einsum('ij,ij->i', (source_points - destination_points), destination_normals)
+    print("c: ", c)
+
+    b = a.T @ c  # (6, )
+    print("b: ", b)
+
+    answer = -b @ A.T
+    r = answer[0:3]
+    t = answer[3:6]
+    print(f"r: {r}, t:{t}")
+
+    # R = (source_points + np.cross(r, source_points)).T @ source_points
+    R = np.array([[1, -r[2], r[1]], [r[2], 1, -r[0]], [-r[1], r[0], 1]])
+    print("R: ", R)
+
+    u, _, vh = np.linalg.svd(R)
+    v = vh.T
+    middle = np.eye(3)
+    middle[2, 2] = np.linalg.det(v @ u.T)
+    rotation_matrix = v @ middle @ u.T
+
+    transformation = mathutils.Matrix.Identity(4)
+    for i in range(3):
+        for j in range(3):
+            transformation[i][j] = rotation_matrix[i][j]
+        transformation[i][3] = t[i]
+    print("Transformation matrix: \n", transformation)
+    return transformation
+    # return mathutils.Matrix.Identity(4)
 
 
 # !!! This function will be used for automatic grading, don't edit the signature !!!
@@ -172,9 +217,13 @@ def closest_point_registration(
     # DONE: Select some points from both meshes
     source_points = numpy_verts(source)
     destination_points = numpy_verts(destination)
+    destination_normals = numpy_normals(destination)
     assert len(source_points) == len(
         destination_points
     ), "Source and destination meshes must have the same number of vertices"
+    assert len(source_points) == len(
+        destination_normals
+    ), "Source vertices and destination normals must have the same number"
 
     # HINT: Make sure not to select more points than are in the mesh or fewer than one point
     num_points = np.clip(num_points, 1, len(source_points))
@@ -183,6 +232,7 @@ def closest_point_registration(
     selected_source_points = source_points[random_list]  # [num_points, 3]
     random_list = random.sample(range(len(destination_points)), num_points)
     selected_destination_points = destination_points[random_list]
+    selected_destination_normals = destination_normals[random_list]
 
     # DONE: Get the nearest destination point for each source point
     # DONE: HINT: scipy.spatial.KDTree makes this much faster!
@@ -201,11 +251,16 @@ def closest_point_registration(
         selected_destination_points = selected_destination_points[
             distances_index.astype(int)
         ]
+        selected_destination_normals = selected_destination_normals[
+            distances_index.astype(int)
+        ]
+
     elif method == "kdtree":
         k_neighbors = 1
         tree = scipy.spatial.KDTree(selected_destination_points)
         _, indices = tree.query(selected_source_points, k=k_neighbors)
         selected_destination_points = selected_destination_points[indices]
+        selected_destination_normals = selected_destination_normals[indices]
     else:
         pass
 
@@ -219,8 +274,10 @@ def closest_point_registration(
     print(
         f"Median distance: {median_distance}, Threshold for rejecting outlier point-pairs: {threshold}"
     )
-    selected_source_points = selected_source_points[distances < threshold]
-    selected_destination_points = selected_destination_points[distances < threshold]
+    boolean_list = distances < threshold
+    selected_source_points = selected_source_points[boolean_list]
+    selected_destination_points = selected_destination_points[boolean_list]
+    selected_destination_normals = selected_destination_normals[boolean_list]
 
     # Estimate a transformation based on the selected point-pairs
     if distance_metric == "POINT_TO_POINT":
@@ -228,16 +285,13 @@ def closest_point_registration(
         return point_to_point_transformation(
             selected_source_points, selected_destination_points
         )
-        # return mathutils.Matrix.LocRotScale(
-        #     mathutils.Vector(numpy.random.uniform(low=-0.1, high=0.1, size=[3])),
-        #     mathutils.Matrix(
-        #         numpy.random.uniform(low=-1, high=1, size=[4, 4])
-        #     ).to_quaternion(),
-        #     mathutils.Vector([1, 1, 1]),
-        # )
-
     elif distance_metric == "POINT_TO_PLANE":
-        raise NotImplementedError("Implement point-to-plant estimation")
+        return point_to_plane_transformation(
+            selected_source_points,
+            selected_destination_points,
+            selected_destination_normals,
+        )
+        # raise NotImplementedError("Implement point-to-plant estimation")
     else:
         raise Exception(f"Unrecognized distance metric '{distance_metric}'")
 
@@ -278,6 +332,7 @@ def iterative_closest_point_registration(
     """
     transformations = []
     for i in range(iterations):
+        print(f"Iteration{i}\n")
 
         # Find a transformation which moves the source mesh closer to the target mesh
         transformation = closest_point_registration(
