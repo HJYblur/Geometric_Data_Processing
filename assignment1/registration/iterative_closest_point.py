@@ -179,34 +179,43 @@ def closest_point_registration(
     # HINT: Make sure not to select more points than are in the mesh or fewer than one point
     num_points = np.clip(num_points, 1, len(source_points))
 
-    random_list = random.sample(range(num_points), num_points)
+    random_list = random.sample(range(len(source_points)), num_points)
     selected_source_points = source_points[random_list]  # [num_points, 3]
+    random_list = random.sample(range(len(destination_points)), num_points)
     selected_destination_points = destination_points[random_list]
 
     # DONE: Get the nearest destination point for each source point
     # DONE: HINT: scipy.spatial.KDTree makes this much faster!
+    # TODO: Use Projection based / farthest-point sampling / normal-space sampling for finding corresponding points
 
     method = "brute_force"  # "brute-force" or "kdtree"
     if method == "brute_force":
+        # Set the array for storing the index of the corresponding dest points
+        distances_index = np.zeros(num_points)
         for i in range(len(selected_source_points)):
             distances = np.linalg.norm(
                 selected_source_points[i] - selected_destination_points, axis=1
             )
-            min_index = np.argmin(distances)
-            selected_destination_points[i] = selected_destination_points[min_index]
-    else:
+            distances_index[i] = np.argmin(distances)
+        # Re-order destination points
+        selected_destination_points = selected_destination_points[
+            distances_index.astype(int)
+        ]
+    elif method == "kdtree":
         k_neighbors = 1
         tree = scipy.spatial.KDTree(selected_destination_points)
         _, indices = tree.query(selected_source_points, k=k_neighbors)
         selected_destination_points = selected_destination_points[indices]
+    else:
+        pass
 
     # DONE: Reject outlier point-pairs
-    k_outlier = 3
+    # TODO: use different p-norms for culling
     distances = np.linalg.norm(
         selected_source_points - selected_destination_points, axis=1
     )
     median_distance = np.median(distances)
-    threshold = k_outlier * median_distance
+    threshold = k * median_distance
     print(
         f"Median distance: {median_distance}, Threshold for rejecting outlier point-pairs: {threshold}"
     )
