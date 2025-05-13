@@ -136,15 +136,20 @@ def point_to_plane_transformation(
     c = np.zeros(vertices_size)  # (8, )
     for i in range(vertices_size):
         c[i] = np.dot(
-            (source_points[i] - destination_points[i]), destination_normals[i].T
-        )
-    # c = np.einsum('ij,ij->i', (source_points - destination_points), destination_normals)
+            (source_points[i] - destination_points[i]), destination_normals[i].T        )
     print("c: ", c)
 
     b = a.T @ c  # (6, )
     print("b: ", b)
 
-    answer = -b @ A.T
+    lambda_reg = 1e-6 # Small factor to avoid singularity
+    A_reg = A + lambda_reg * np.eye(6)
+    try:
+        answer = np.linalg.solve(A_reg, -b)
+    except np.linalg.LinAlgError:
+        print("Singular matrix, using least squares solver")
+        answer = np.linalg.lstsq(A, -b, rcond=None)[0]
+
     r = answer[0:3]
     t = answer[3:6]
     print(f"r: {r}, t:{t}")
@@ -157,7 +162,7 @@ def point_to_plane_transformation(
     v = vh.T
     middle = np.eye(3)
     middle[2, 2] = np.linalg.det(v @ u.T)
-    rotation_matrix = v @ middle @ u.T
+    rotation_matrix = u @ middle @ vh
 
     transformation = mathutils.Matrix.Identity(4)
     for i in range(3):
@@ -238,7 +243,7 @@ def closest_point_registration(
     # DONE: HINT: scipy.spatial.KDTree makes this much faster!
     # TODO: Use Projection based / farthest-point sampling / normal-space sampling for finding corresponding points
 
-    method = "brute_force"  # "brute-force" or "kdtree"
+    method = "kdtree"  # "brute-force" or "kdtree"
     if method == "brute_force":
         # Set the array for storing the index of the corresponding dest points
         distances_index = np.zeros(num_points)
