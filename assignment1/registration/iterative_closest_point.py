@@ -39,6 +39,29 @@ def numpy_normals(mesh: bmesh.types.BMesh) -> np.ndarray:
     return normals.reshape([len(mesh.verts), 3])
 
 
+def farthest_point_sampling(points, k):
+    centroids = []
+    centroids_indices = []
+
+    # Randomly select the first centroid
+    first_index = np.random.randint(len(points))
+    centroids_indices.append(first_index)
+    centroids.append(points[first_index])
+
+    # Fill the centroid list by selecting the farthest point
+    for _ in range(k - 1):
+        distances = []
+        for x in points:
+            # Find the min distance from point to current centroids
+            min_dis_to_centroids = min(np.linalg.norm(x - centroids, axis=1))
+            distances.append(min_dis_to_centroids)
+        farthest_index = np.argmax(distances)
+        centroids.append(points[farthest_index])
+        centroids_indices.append(farthest_index)
+
+    return np.array(centroids_indices)
+
+
 # !!! This function will be used for automatic grading, don't edit the signature !!!
 def point_to_point_transformation(
     source_points: np.ndarray, destination_points: np.ndarray, **kwargs
@@ -234,17 +257,30 @@ def closest_point_registration(
     # HINT: Make sure not to select more points than are in the mesh or fewer than one point
     num_points = np.clip(num_points, 1, len(source_points))
 
-    random_list = random.sample(range(len(source_points)), num_points)
-    selected_source_points = source_points[random_list]  # [num_points, 3]
-    random_list = random.sample(range(len(destination_points)), num_points)
-    selected_destination_points = destination_points[random_list]
-    selected_destination_normals = destination_normals[random_list]
+    # TODO: Use farthest-point sampling / normal-space sampling for sampling
+    sampling_method = kwargs.get(
+        "sampling_method", "random"
+    )  #  or "farthest_point" or "normal_space"
+    if sampling_method == "random":
+        random_list = random.sample(range(len(source_points)), num_points)
+        selected_source_points = source_points[random_list]  # [num_points, 3]
+        random_list = random.sample(range(len(destination_points)), num_points)
+        selected_destination_points = destination_points[random_list]
+        selected_destination_normals = destination_normals[random_list]
+    elif sampling_method == "farthest_point":
+        selected_indice = farthest_point_sampling(source_points, num_points)
+        selected_source_points = source_points[selected_indice]
+        selected_destination_points = destination_points[selected_indice]
+        selected_destination_normals = destination_normals[selected_indice]
+    elif sampling_method == "normal_space":
+        pass
+    else:
+        raise (ValueError(f"Unsupported sampling method: {sampling_method}."))
 
     # DONE: Get the nearest destination point for each source point
     # DONE: HINT: scipy.spatial.KDTree makes this much faster!
-    # TODO: Use Projection based / farthest-point sampling / normal-space sampling for finding corresponding points
 
-    # "brute_force" or "kdtree" or "projection" or "farthest_point" or "normal_space"
+    # "brute_force" or "kdtree"
     matching_method = kwargs.get("matching_method", "kdtree")
     if matching_method == "brute_force":
         # Set the array for storing the index of the corresponding dest points
@@ -261,7 +297,6 @@ def closest_point_registration(
         selected_destination_normals = selected_destination_normals[
             distances_index.astype(int)
         ]
-
     elif matching_method == "kdtree":
         k_neighbors = 1
         tree = scipy.spatial.KDTree(selected_destination_points)
@@ -269,7 +304,7 @@ def closest_point_registration(
         selected_destination_points = selected_destination_points[indices]
         selected_destination_normals = selected_destination_normals[indices]
     else:
-        pass
+        raise (ValueError(f"Unsupported matching method: {matching_method}."))
 
     # DONE: Reject outlier point-pairs
     # DONE: use different p-norms for culling

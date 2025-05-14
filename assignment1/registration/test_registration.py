@@ -149,6 +149,7 @@ def test_mesh():
         iterations=100,
         epsilon=0.0005,
         distance_metric="POINT_TO_PLANE",
+        sampling_method="farthest_point",
         match_method="kdtree",
         p_norm="inf",  # 1, 2, inf
     )
