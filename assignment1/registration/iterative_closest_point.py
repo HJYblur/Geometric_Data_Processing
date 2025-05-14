@@ -120,7 +120,7 @@ def point_to_plane_transformation(
              this version of rigid registration should not re-scale the source mesh.
     """
 
-    # TODO: Implement a version of the ICP algorithm based on point-to-plane distances
+    # DONE: Implement a version of the ICP algorithm based on point-to-plane distances
 
     # p -> source pts
     # n -> normals
@@ -136,13 +136,14 @@ def point_to_plane_transformation(
     c = np.zeros(vertices_size)  # (8, )
     for i in range(vertices_size):
         c[i] = np.dot(
-            (source_points[i] - destination_points[i]), destination_normals[i].T        )
+            (source_points[i] - destination_points[i]), destination_normals[i].T
+        )
     print("c: ", c)
 
     b = a.T @ c  # (6, )
     print("b: ", b)
 
-    lambda_reg = 1e-6 # Small factor to avoid singularity
+    lambda_reg = 1e-6  # Small factor to avoid singularity
     A_reg = A + lambda_reg * np.eye(6)
     try:
         answer = np.linalg.solve(A_reg, -b)
@@ -216,8 +217,8 @@ def closest_point_registration(
              The transformation should contain only translation and rotation components;
              this version of rigid registration should not re-scale the source mesh.
     """
-    # TODO: Find a transformation matrix which moves the source mesh closer to the destination mesh
-    # TODO: Read the parameters from the command line
+    # DONE: Find a transformation matrix which moves the source mesh closer to the destination mesh
+    # DONE: Read the parameters from the command line
 
     # DONE: Select some points from both meshes
     source_points = numpy_verts(source)
@@ -243,8 +244,8 @@ def closest_point_registration(
     # DONE: HINT: scipy.spatial.KDTree makes this much faster!
     # TODO: Use Projection based / farthest-point sampling / normal-space sampling for finding corresponding points
 
-    method = "kdtree"  # "brute-force" or "kdtree"
-    if method == "brute_force":
+    matching_method = kwargs.get("matching_method", "kdtree")
+    if matching_method == "brute_force":
         # Set the array for storing the index of the corresponding dest points
         distances_index = np.zeros(num_points)
         for i in range(len(selected_source_points)):
@@ -260,7 +261,7 @@ def closest_point_registration(
             distances_index.astype(int)
         ]
 
-    elif method == "kdtree":
+    elif matching_method == "kdtree":
         k_neighbors = 1
         tree = scipy.spatial.KDTree(selected_destination_points)
         _, indices = tree.query(selected_source_points, k=k_neighbors)
@@ -270,10 +271,20 @@ def closest_point_registration(
         pass
 
     # DONE: Reject outlier point-pairs
-    # TODO: use different p-norms for culling
-    distances = np.linalg.norm(
-        selected_source_points - selected_destination_points, axis=1
-    )
+    # DONE: use different p-norms for culling
+    p_norms = kwargs.get("p_norms", "2")  # 1, 2, inf
+    if p_norms == "1":
+        distances = np.abs(selected_source_points - selected_destination_points).sum(
+            axis=1
+        )
+    elif p_norms == "2":
+        distances = np.linalg.norm(
+            selected_source_points - selected_destination_points, axis=1
+        )
+    else:
+        distances = np.linalg.norm(
+            selected_source_points - selected_destination_points, axis=1, ord=np.inf
+        )
     median_distance = np.median(distances)
     threshold = k * median_distance
     print(

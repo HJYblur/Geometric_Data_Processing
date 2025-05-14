@@ -52,10 +52,12 @@ def test_cube():
         iterations=100,
         epsilon=0.0005,
         distance_metric="POINT_TO_PLANE",
+        match_method="kdtree",
+        p_norm="1",  # 1, 2, inf
     )
     print(len(registration_transformations))
     # The function should have converged
-    #assert len(registration_transformations) < 100
+    # assert len(registration_transformations) < 100
 
     # Check that we found the right matrix
     estimated_transformation = net_transformation(registration_transformations)
@@ -104,6 +106,8 @@ def test_tetrahedron():
         iterations=100,
         epsilon=0.0005,
         distance_metric="POINT_TO_PLANE",
+        match_method="kdtree",
+        p_norm="inf",  # 1, 2, inf
     )
 
     # The function should have converged
@@ -145,6 +149,8 @@ def test_mesh():
         iterations=100,
         epsilon=0.0005,
         distance_metric="POINT_TO_PLANE",
+        match_method="kdtree",
+        p_norm="inf",  # 1, 2, inf
     )
 
     # The function should have converged
