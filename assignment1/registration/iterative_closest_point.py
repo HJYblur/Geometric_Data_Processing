@@ -244,6 +244,7 @@ def closest_point_registration(
     # DONE: HINT: scipy.spatial.KDTree makes this much faster!
     # TODO: Use Projection based / farthest-point sampling / normal-space sampling for finding corresponding points
 
+    # "brute_force" or "kdtree" or "projection" or "farthest_point" or "normal_space"
     matching_method = kwargs.get("matching_method", "kdtree")
     if matching_method == "brute_force":
         # Set the array for storing the index of the corresponding dest points
@@ -297,7 +298,6 @@ def closest_point_registration(
 
     # Estimate a transformation based on the selected point-pairs
     if distance_metric == "POINT_TO_POINT":
-        # DONE: call point_to_point_transformation() on your selected source and destination points
         return point_to_point_transformation(
             selected_source_points, selected_destination_points
         )
