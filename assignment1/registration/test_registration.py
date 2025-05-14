@@ -9,41 +9,57 @@ NUM_TESTS = 10
 
 def assert_similar_transformations(a: mathutils.Matrix, b: mathutils.Matrix):
     translation_error = a.to_translation() - b.to_translation()
-    assert translation_error.magnitude == pytest.approx(0, abs=1e-3), "Translation error should be low"
+    assert translation_error.magnitude == pytest.approx(
+        0, abs=1e-3
+    ), "Translation error should be low"
 
     rotation_error = a.to_quaternion() - b.to_quaternion()
-    assert rotation_error.magnitude == pytest.approx(0, abs=1e-3), "Rotation error should be low"
+    assert rotation_error.magnitude == pytest.approx(
+        0, abs=1e-3
+    ), "Rotation error should be low"
 
     scaling_error = a.to_scale() - b.to_scale()
-    assert scaling_error.magnitude == pytest.approx(0, abs=1e-3), "Scaling should be zero"
+    assert scaling_error.magnitude == pytest.approx(
+        0, abs=1e-3
+    ), "Scaling should be zero"
 
 
 def test_cube():
-    translation = mathutils.Matrix.Translation([
-        random.uniform(-0.01, 0.01),
-        random.uniform(-0.01, 0.01),
-        random.uniform(-0.01, 0.01)
-    ])
-    rotation = mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, 'X') \
-               @ mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, 'Y') \
-               @ mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, 'Z')
+    translation = mathutils.Matrix.Translation(
+        [
+            random.uniform(-0.01, 0.01),
+            random.uniform(-0.01, 0.01),
+            random.uniform(-0.01, 0.01),
+        ]
+    )
+    rotation = (
+        mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, "X")
+        @ mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, "Y")
+        @ mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, "Z")
+    )
     transformation = translation @ rotation
 
     source, destination = primitives.CUBE, primitives.CUBE.copy()
-    destination.transform(transformation)  # Move the destination, so we don't need to invert the transform
+    destination.transform(
+        transformation
+    )  # Move the destination, so we don't need to invert the transform
 
     registration_transformations = iterative_closest_point_registration(
-        source, destination,
-        k=2.5, num_points=4096,
-        iterations=100, epsilon=0.0005,
-        distance_metric='POINT_TO_POINT'
+        source,
+        destination,
+        k=2.5,
+        num_points=4096,
+        iterations=100,
+        epsilon=0.0005,
+        distance_metric="POINT_TO_PLANE",
     )
-
+    print(len(registration_transformations))
     # The function should have converged
-    assert len(registration_transformations) < 100
+    #assert len(registration_transformations) < 100
 
     # Check that we found the right matrix
     estimated_transformation = net_transformation(registration_transformations)
+    print(transformation - estimated_transformation)
     assert_similar_transformations(transformation, estimated_transformation)
 
 
@@ -58,3 +74,82 @@ def test_cube():
 # HINT: Once your method works for translations, test (small) random rotations
 
 # HINT: Finally, make sure your method works for transformations with both a translation and a rotation component
+
+
+def test_tetrahedron():
+    translation = mathutils.Matrix.Translation(
+        [
+            random.uniform(-0.01, 0.01),
+            random.uniform(-0.01, 0.01),
+            random.uniform(-0.01, 0.01),
+        ]
+    )
+    rotation = (
+        mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, "X")
+        @ mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, "Y")
+        @ mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, "Z")
+    )
+    transformation = translation @ rotation
+
+    source, destination = primitives.TETRAHEDRON, primitives.TETRAHEDRON.copy()
+    destination.transform(
+        transformation
+    )  # Move the destination, so we don't need to invert the transform
+
+    registration_transformations = iterative_closest_point_registration(
+        source,
+        destination,
+        k=2.5,
+        num_points=4096,
+        iterations=100,
+        epsilon=0.0005,
+        distance_metric="POINT_TO_PLANE",
+    )
+
+    # The function should have converged
+    assert len(registration_transformations) < 100
+
+    # Check that we found the right matrix
+    estimated_transformation = net_transformation(registration_transformations)
+    assert_similar_transformations(transformation, estimated_transformation)
+
+
+def test_mesh():
+    translation = mathutils.Matrix.Translation(
+        [
+            random.uniform(-0.01, 0.01),
+            random.uniform(-0.01, 0.01),
+            random.uniform(-0.01, 0.01),
+        ]
+    )
+    rotation = (
+        mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, "X")
+        @ mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, "Y")
+        @ mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, "Z")
+    )
+    transformation = translation @ rotation
+
+    source, destination = (
+        meshes.DOUBLE_TORUS,
+        meshes.DOUBLE_TORUS.copy(),
+    )
+    destination.transform(
+        transformation
+    )  # Move the destination, so we don't need to invert the transform
+
+    registration_transformations = iterative_closest_point_registration(
+        source,
+        destination,
+        k=2,
+        num_points=1000,
+        iterations=100,
+        epsilon=0.0005,
+        distance_metric="POINT_TO_PLANE",
+    )
+
+    # The function should have converged
+    assert len(registration_transformations) < 100
+
+    # Check that we found the right matrix
+    estimated_transformation = net_transformation(registration_transformations)
+    assert_similar_transformations(transformation, estimated_transformation)

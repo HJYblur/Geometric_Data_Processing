@@ -144,4 +144,5 @@ uv.lock
 .wheels/
 util.py
 settings.json
+.DS_Store
 assignment1/blender_manifest.toml 
