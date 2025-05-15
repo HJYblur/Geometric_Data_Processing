@@ -3,6 +3,7 @@ import pytest
 from .iterative_closest_point import *
 from data import primitives, meshes
 import mathutils
+import time
 
 NUM_TESTS = 10
 
@@ -39,7 +40,7 @@ def test_cube():
     )
     transformation = translation @ rotation
 
-    source, destination = primitives.CUBE, primitives.CUBE.copy()
+    source, destination = primitives.CUBE.copy(), primitives.CUBE.copy()
     destination.transform(
         transformation
     )  # Move the destination, so we don't need to invert the transform
@@ -55,13 +56,11 @@ def test_cube():
         match_method="kdtree",
         p_norm="1",  # 1, 2, inf
     )
-    print(len(registration_transformations))
     # The function should have converged
-    # assert len(registration_transformations) < 100
+    assert len(registration_transformations) < 100
 
     # Check that we found the right matrix
     estimated_transformation = net_transformation(registration_transformations)
-    print(transformation - estimated_transformation)
     assert_similar_transformations(transformation, estimated_transformation)
 
 
@@ -93,7 +92,7 @@ def test_tetrahedron():
     )
     transformation = translation @ rotation
 
-    source, destination = primitives.TETRAHEDRON, primitives.TETRAHEDRON.copy()
+    source, destination = primitives.TETRAHEDRON.copy(), primitives.TETRAHEDRON.copy()
     destination.transform(
         transformation
     )  # Move the destination, so we don't need to invert the transform
@@ -134,7 +133,7 @@ def test_mesh():
     transformation = translation @ rotation
 
     source, destination = (
-        meshes.DOUBLE_TORUS,
+        meshes.DOUBLE_TORUS.copy(),
         meshes.DOUBLE_TORUS.copy(),
     )
     destination.transform(
@@ -150,7 +149,7 @@ def test_mesh():
         epsilon=0.0005,
         distance_metric="POINT_TO_PLANE",
         #sampling_method="farthest_point",
-        matching_metric="normals",
+        matching_metric="euclid",
         p_norm="2",  # 1, 2, inf
     )
 
@@ -159,4 +158,77 @@ def test_mesh():
 
     # Check that we found the right matrix
     estimated_transformation = net_transformation(registration_transformations)
+    assert_similar_transformations(transformation, estimated_transformation)
+
+
+def test_mesh_timing():
+    translation = mathutils.Matrix.Translation(
+        [
+            random.uniform(-0.1, 0.1),
+            random.uniform(-0.1, 0.1),
+            random.uniform(-0.1, 0.1),
+        ]
+    )
+    rotation = (
+        mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, "X")
+        @ mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, "Y")
+        @ mathutils.Matrix.Rotation(random.uniform(-0.01, 0.01), 4, "Z")
+    )
+    transformation = translation @ rotation
+
+    source, destination = (
+        meshes.FISH.copy(),
+        meshes.FISH.copy(),
+    )
+    destination.transform(
+        transformation
+    )  # Move the destination, so we don't need to invert the transform
+
+    source2, destination2 = (
+        meshes.FISH.copy(),
+        meshes.FISH.copy(),
+    )
+    destination2.transform(
+        transformation
+    )
+
+
+    start_time_1 = time.time()
+    registration_transformations = iterative_closest_point_registration(
+        source,
+        destination,
+        k=2,
+        num_points=1000,
+        iterations=100,
+        epsilon=0.0005,
+        distance_metric="POINT_TO_PLANE",
+        #sampling_method="farthest_point",
+        matching_metric="normals",
+        p_norm="2",  # 1, 2, inf
+    )
+    end_time_1 = time.time()
+
+    start_time_2 = time.time()
+    registration_transformations_2 = iterative_closest_point_registration(
+        source2,
+        destination2,
+        k=2,
+        num_points=1000,
+        iterations=100,
+        epsilon=0.0005,
+        distance_metric="POINT_TO_PLANE",
+        #sampling_method="farthest_point",
+        matching_metric="euclid",
+        matching_method="kdtree",
+        p_norm="2",  # 1, 2, inf
+    )
+    end_time_2 = time.time()
+    print()
+    print(f"Time for first registration of size {len(registration_transformations)}: {end_time_1 - start_time_1:.4f} seconds")
+    print(f"Time for second registration of size {len(registration_transformations_2)}: {end_time_2 - start_time_2:.4f} seconds")
+
+    estimated_transformation = net_transformation(registration_transformations)
+    assert_similar_transformations(transformation, estimated_transformation)
+
+    estimated_transformation = net_transformation(registration_transformations_2)
     assert_similar_transformations(transformation, estimated_transformation)

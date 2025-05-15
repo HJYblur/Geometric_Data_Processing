@@ -110,7 +110,7 @@ def point_to_point_transformation(
         for j in range(3):
             transformation[i][j] = rotation_matrix[i][j]
         transformation[i][3] = translation[i]
-    print("Transformation matrix: \n", transformation)
+
     return transformation
     # return mathutils.Matrix.Identity(4)
 
@@ -152,17 +152,14 @@ def point_to_plane_transformation(
     a[:, 0:3] = np.cross(source_points, destination_normals)
     a[:, 3:6] = destination_normals
     A = a.T @ a
-    print("A: ", A.shape)
 
     c = np.zeros(vertices_size)  # (8, )
     for i in range(vertices_size):
         c[i] = np.dot(
             (source_points[i] - destination_points[i]), destination_normals[i].T
         )
-    print("c: ", c)
 
     b = a.T @ c  # (6, )
-    print("b: ", b)
 
     lambda_reg = 1e-6  # Small factor to avoid singularity
     A_reg = A + lambda_reg * np.eye(6)
@@ -174,11 +171,9 @@ def point_to_plane_transformation(
 
     r = answer[0:3]
     t = answer[3:6]
-    print(f"r: {r}, t:{t}")
 
     # R = (source_points + np.cross(r, source_points)).T @ source_points
     R = np.array([[1, -r[2], r[1]], [r[2], 1, -r[0]], [-r[1], r[0], 1]])
-    print("R: ", R)
 
     u, _, vh = np.linalg.svd(R)
     v = vh.T
@@ -191,7 +186,7 @@ def point_to_plane_transformation(
         for j in range(3):
             transformation[i][j] = rotation_matrix[i][j]
         transformation[i][3] = t[i]
-    print("Transformation matrix: \n", transformation)
+
     return transformation
 
 
@@ -217,14 +212,17 @@ def get_corresponding_indices_euclid(src_points, dst_points):
     return distances_index.astype(int)
 
 
-def get_corresponding_points_normals(src_points, src_normals, dst_points, dst_normals, depth, angle_weight):
+def get_corresponding_points_normals(src_points, src_normals, dst_points, dst_normals, k, angle_weight):
     tree = scipy.spatial.KDTree(dst_points)
 
+    # Make sure number of neighbors is not greater than the number of points
+    k = min(k, len(src_points))
+
     # Query k closest neighbors for each point in src_points
-    _, all_indices = tree.query(src_points, k=depth)
+    _, all_indices = tree.query(src_points, k=k)
 
     # Ensure all_indices array is 2 dimensional
-    if depth == 1:
+    if k == 1:
         all_indices = all_indices[:, np.newaxis]  # (N,) → (N, 1)
 
     # dst_candidates shape: (N,k,3), normals shape: (N,k,3)
@@ -246,7 +244,6 @@ def get_corresponding_points_normals(src_points, src_normals, dst_points, dst_no
 
     best_k_indices = np.argmin(total_costs, axis=1)  # shape (N,)
     best_indices = all_indices[np.arange(len(src_points)), best_k_indices]
-    print(depth)
     return best_indices
 
 
@@ -336,7 +333,6 @@ def closest_point_registration(
     # "brute_force" or "kdtree"
     
     matching_metric = kwargs.get("matching_metric", "euclid")
-
     if matching_metric == "euclid":
         matching_method = kwargs.get("matching_method", "kdtree")
 
@@ -375,9 +371,9 @@ def closest_point_registration(
         )
     median_distance = np.median(distances)
     threshold = k * median_distance
-    print(
-        f"Median distance: {median_distance}, Threshold for rejecting outlier point-pairs: {threshold}"
-    )
+    # print(
+    #     f"Median distance: {median_distance}, Threshold for rejecting outlier point-pairs: {threshold}"
+    # )
     boolean_list = distances < threshold
     selected_src_points = selected_src_points[boolean_list]
     selected_dst_points = selected_dst_points[boolean_list]
@@ -435,7 +431,7 @@ def iterative_closest_point_registration(
     """
     transformations = []
     for i in range(iterations):
-        print(f"Iteration{i}\n")
+        #print(f"Iteration{i}\n")
 
         # Find a transformation which moves the source mesh closer to the target mesh
         transformation = closest_point_registration(
