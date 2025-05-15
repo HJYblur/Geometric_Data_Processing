@@ -121,9 +121,9 @@ def test_tetrahedron():
 def test_mesh():
     translation = mathutils.Matrix.Translation(
         [
-            random.uniform(-0.01, 0.01),
-            random.uniform(-0.01, 0.01),
-            random.uniform(-0.01, 0.01),
+            random.uniform(-1.1, 1.1),
+            random.uniform(-1.1, 1.1),
+            random.uniform(-1.1, 1.1),
         ]
     )
     rotation = (
@@ -149,9 +149,9 @@ def test_mesh():
         iterations=100,
         epsilon=0.0005,
         distance_metric="POINT_TO_PLANE",
-        sampling_method="farthest_point",
-        match_method="kdtree",
-        p_norm="inf",  # 1, 2, inf
+        #sampling_method="farthest_point",
+        matching_metric="normals",
+        p_norm="2",  # 1, 2, inf
     )
 
     # The function should have converged

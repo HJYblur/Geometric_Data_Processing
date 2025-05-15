@@ -5,7 +5,6 @@ import bpy
 import bmesh
 import mathutils
 import numpy as np
-import numpy.random
 import scipy
 
 
@@ -58,7 +57,6 @@ def farthest_point_sampling(points, k):
         farthest_index = np.argmax(distances)
         centroids.append(points[farthest_index])
         centroids_indices.append(farthest_index)
-
     return np.array(centroids_indices)
 
 
@@ -195,7 +193,61 @@ def point_to_plane_transformation(
         transformation[i][3] = t[i]
     print("Transformation matrix: \n", transformation)
     return transformation
-    # return mathutils.Matrix.Identity(4)
+
+
+def get_corresponding_indices_euclid(src_points, dst_points):
+    """
+    Finds the indices of the closest points in the destination point set for each point in the source point set
+    using Euclidean distance.
+
+    Args:
+        src_points (numpy.ndarray): A 2D array of shape (N, D) representing the source points
+        dst_points (numpy.ndarray): A 2D array of shape (M, D) representing the destination points.
+
+    Returns:
+        numpy.ndarray: An array containing the indices of the closest points in `dst_points` 
+                       for each point in `src_points`.
+    """
+    distances_index = np.zeros(len(src_points))
+    for i in range(len(src_points)):
+        distances = np.linalg.norm(
+            src_points[i] - dst_points, axis=1
+        )
+        distances_index[i] = np.argmin(distances)
+    return distances_index.astype(int)
+
+
+def get_corresponding_points_normals(src_points, src_normals, dst_points, dst_normals, depth, angle_weight):
+    tree = scipy.spatial.KDTree(dst_points)
+
+    # Query k closest neighbors for each point in src_points
+    _, all_indices = tree.query(src_points, k=depth)
+
+    # Ensure all_indices array is 2 dimensional
+    if depth == 1:
+        all_indices = all_indices[:, np.newaxis]  # (N,) → (N, 1)
+
+    # dst_candidates shape: (N,k,3), normals shape: (N,k,3)
+    dst_candidates = dst_points[all_indices]
+    dst_normal_candidates = dst_normals[all_indices]
+
+    # calculate the distance between the candidate pts and the source pts
+    dist_costs = np.linalg.norm(
+        dst_candidates - src_points[:, np.newaxis, :], 
+        axis=2
+    )
+    # calculate the custom angle cost between the candidate normals and the source normals
+    angle_costs = 1 - np.sum(
+        src_normals[:, np.newaxis, :] * dst_normal_candidates, 
+        axis=2
+    )
+
+    total_costs = dist_costs + angle_weight * angle_costs
+
+    best_k_indices = np.argmin(total_costs, axis=1)  # shape (N,)
+    best_indices = all_indices[np.arange(len(src_points)), best_k_indices]
+    print(depth)
+    return best_indices
 
 
 # !!! This function will be used for automatic grading, don't edit the signature !!!
@@ -244,82 +296,82 @@ def closest_point_registration(
     # DONE: Read the parameters from the command line
 
     # DONE: Select some points from both meshes
-    source_points = numpy_verts(source)
-    destination_points = numpy_verts(destination)
-    destination_normals = numpy_normals(destination)
-    assert len(source_points) == len(
-        destination_points
+    src_points = numpy_verts(source)
+    src_normals = numpy_normals(source)
+    dst_points = numpy_verts(destination)
+    dst_normals = numpy_normals(destination)
+    assert len(src_points) == len(
+        dst_points
     ), "Source and destination meshes must have the same number of vertices"
-    assert len(source_points) == len(
-        destination_normals
+    assert len(src_points) == len(
+        dst_normals
     ), "Source vertices and destination normals must have the same number"
 
     # HINT: Make sure not to select more points than are in the mesh or fewer than one point
-    num_points = np.clip(num_points, 1, len(source_points))
+    num_points = np.clip(num_points, 1, len(src_points))
 
     # TODO: Use farthest-point sampling / normal-space sampling for sampling
     sampling_method = kwargs.get(
         "sampling_method", "random"
     )  #  or "farthest_point" or "normal_space"
     if sampling_method == "random":
-        random_list = random.sample(range(len(source_points)), num_points)
-        selected_source_points = source_points[random_list]  # [num_points, 3]
-        random_list = random.sample(range(len(destination_points)), num_points)
-        selected_destination_points = destination_points[random_list]
-        selected_destination_normals = destination_normals[random_list]
+        src_indices = random.sample(range(len(src_points)), num_points)
+        dst_indices = random.sample(range(len(dst_points)), num_points)
     elif sampling_method == "farthest_point":
-        selected_indice = farthest_point_sampling(source_points, num_points)
-        selected_source_points = source_points[selected_indice]
-        selected_destination_points = destination_points[selected_indice]
-        selected_destination_normals = destination_normals[selected_indice]
+        src_indices = farthest_point_sampling(src_points, num_points)
+        dst_indices = farthest_point_sampling(dst_points, num_points)
     elif sampling_method == "normal_space":
         pass
     else:
         raise (ValueError(f"Unsupported sampling method: {sampling_method}."))
 
+    selected_src_points = src_points[src_indices]
+    selected_src_normals = src_normals[src_indices]
+    selected_dst_points = dst_points[dst_indices]
+    selected_dst_normals = dst_normals[dst_indices]
+
     # DONE: Get the nearest destination point for each source point
     # DONE: HINT: scipy.spatial.KDTree makes this much faster!
 
     # "brute_force" or "kdtree"
-    matching_method = kwargs.get("matching_method", "kdtree")
-    if matching_method == "brute_force":
-        # Set the array for storing the index of the corresponding dest points
-        distances_index = np.zeros(num_points)
-        for i in range(len(selected_source_points)):
-            distances = np.linalg.norm(
-                selected_source_points[i] - selected_destination_points, axis=1
-            )
-            distances_index[i] = np.argmin(distances)
-        # Re-order destination points
-        selected_destination_points = selected_destination_points[
-            distances_index.astype(int)
-        ]
-        selected_destination_normals = selected_destination_normals[
-            distances_index.astype(int)
-        ]
-    elif matching_method == "kdtree":
-        k_neighbors = 1
-        tree = scipy.spatial.KDTree(selected_destination_points)
-        _, indices = tree.query(selected_source_points, k=k_neighbors)
-        selected_destination_points = selected_destination_points[indices]
-        selected_destination_normals = selected_destination_normals[indices]
+    
+    matching_metric = kwargs.get("matching_metric", "euclid")
+
+    if matching_metric == "euclid":
+        matching_method = kwargs.get("matching_method", "kdtree")
+
+        if matching_method == "brute_force":
+            new_indices = get_corresponding_indices_euclid(selected_src_points ,selected_dst_points)
+        elif matching_method == "kdtree":
+            k_neighbors = 1
+            tree = scipy.spatial.KDTree(selected_dst_points)
+            _, new_indices = tree.query(selected_src_points, k=k_neighbors)
+        else:
+            raise (ValueError(f"Unsupported matching method: {matching_method}."))
+        
+    elif matching_metric == "normals":
+        new_indices = get_corresponding_points_normals(selected_src_points, selected_src_normals, selected_dst_points, selected_dst_normals, 10, 1)
     else:
-        raise (ValueError(f"Unsupported matching method: {matching_method}."))
+        raise (ValueError(f"Unsupported matching method: {matching_metric}."))
+
+    # Re-order destination points
+    selected_dst_points = selected_dst_points[new_indices]
+    selected_dst_normals = selected_dst_normals[new_indices]
 
     # DONE: Reject outlier point-pairs
     # DONE: use different p-norms for culling
     p_norms = kwargs.get("p_norms", "2")  # 1, 2, inf
     if p_norms == "1":
-        distances = np.abs(selected_source_points - selected_destination_points).sum(
+        distances = np.abs(selected_src_points - selected_dst_points).sum(
             axis=1
         )
     elif p_norms == "2":
         distances = np.linalg.norm(
-            selected_source_points - selected_destination_points, axis=1
+            selected_src_points - selected_dst_points, axis=1
         )
     else:
         distances = np.linalg.norm(
-            selected_source_points - selected_destination_points, axis=1, ord=np.inf
+            selected_src_points - selected_dst_points, axis=1, ord=np.inf
         )
     median_distance = np.median(distances)
     threshold = k * median_distance
@@ -327,20 +379,20 @@ def closest_point_registration(
         f"Median distance: {median_distance}, Threshold for rejecting outlier point-pairs: {threshold}"
     )
     boolean_list = distances < threshold
-    selected_source_points = selected_source_points[boolean_list]
-    selected_destination_points = selected_destination_points[boolean_list]
-    selected_destination_normals = selected_destination_normals[boolean_list]
+    selected_src_points = selected_src_points[boolean_list]
+    selected_dst_points = selected_dst_points[boolean_list]
+    selected_dst_normals = selected_dst_normals[boolean_list]
 
     # Estimate a transformation based on the selected point-pairs
     if distance_metric == "POINT_TO_POINT":
         return point_to_point_transformation(
-            selected_source_points, selected_destination_points
+            selected_src_points, selected_dst_points
         )
     elif distance_metric == "POINT_TO_PLANE":
         return point_to_plane_transformation(
-            selected_source_points,
-            selected_destination_points,
-            selected_destination_normals,
+            selected_src_points,
+            selected_dst_points,
+            selected_dst_normals,
         )
         # raise NotImplementedError("Implement point-to-plant estimation")
     else:
