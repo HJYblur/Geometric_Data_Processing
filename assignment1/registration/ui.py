@@ -160,8 +160,8 @@ class ObjectICPRegistration(bpy.types.Operator):
         self.hausdorff_distance = f"{hausdorff_value:.2f}"
         return {'FINISHED'}
 
-    def draw_enum_pair(self, label, prop_name):
-        row = self.layout.row()
+    def draw_enum_pair(self, layout, label, prop_name):
+        row = layout.row()
         split = row.split(factor=0.6)
         split.label(text=label)
         split.prop(self, prop_name, text="")
@@ -190,14 +190,14 @@ class ObjectICPRegistration(bpy.types.Operator):
         # Other hyperparameters
         box = layout.box()
         box.label(text="Hyperparameters")
-        self.draw_enum_pair( "Point Rejection Coefficient", "k")
-        self.draw_enum_pair("Number of Points", "num_points")
-        self.draw_enum_pair("Distance Metric","distance_metric")
-        self.draw_enum_pair("Culling Scheme", "p")
-        self.draw_enum_pair("Sampling Method", 'sampling_method')
-        self.draw_enum_pair("Matrching Metric", 'matching_metric')
-        if self.sampling_method == "euclid":
-            self.draw_enum_pair("Matching Method", 'matching_method')
+        self.draw_enum_pair( box,"Point Rejection Coefficient", "k")
+        self.draw_enum_pair(box, "Number of Points", "num_points")
+        self.draw_enum_pair(box, "Distance Metric","distance_metric")
+        self.draw_enum_pair(box, "Culling Scheme", "p")
+        self.draw_enum_pair(box, "Sampling Method", 'sampling_method')
+        self.draw_enum_pair(box, "Matching Metric", 'matching_metric')
+        if self.matching_metric == "euclid":
+            self.draw_enum_pair(box, "Matching Method", 'matching_method')
 
         layout.separator()
 
