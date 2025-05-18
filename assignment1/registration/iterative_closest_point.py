@@ -6,7 +6,7 @@ import bmesh
 import mathutils
 import numpy as np
 import scipy
-
+from collections import defaultdict
 
 def numpy_verts(mesh: bmesh.types.BMesh) -> np.ndarray:
     """
@@ -58,6 +58,49 @@ def farthest_point_sampling(points, k):
         centroids.append(points[farthest_index])
         centroids_indices.append(farthest_index)
     return np.array(centroids_indices)
+
+
+def normal_space_sampling(normals: np.ndarray, n: int):
+    # Ensure normals are normalized
+    unit_normals = normals / np.linalg.norm(normals)
+
+    # Generate n "evenly spaced" points on a sphere, adapted from: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
+    indices = np.arange(n, dtype=np.float64) + 0.5
+    phi = np.arccos(1 - 2 * indices / n)  
+    theta = np.pi * (1 + 5**0.5) * indices  
+    bins = np.column_stack([
+        np.sin(phi) * np.cos(theta),
+        np.sin(phi) * np.sin(theta),
+        np.cos(phi)
+    ])
+
+    
+    # Place normals to bins (the points on the sphere) using kdtree
+    tree = scipy.spatial.KDTree(bins)
+    bin_indices = tree.query(unit_normals)[1]
+    bin_counts = np.bincount(bin_indices, minlength=n)
+    
+    valid_bins = np.where(bin_counts > 0)[0]
+
+    selected_indices = np.zeros(n, dtype=np.int64)
+    
+    cum_counts = np.cumsum(bin_counts) # This is the "end index" of each bin
+    start_indices = np.zeros(n, dtype=np.int64)
+    start_indices[1:] = cum_counts[:-1] # Start of each bin is the end of the previous bin
+
+    # select a point from each bin randomly
+    for bin_idx in valid_bins:
+        start = start_indices[bin_idx]
+        end = cum_counts[bin_idx]
+        selected_indices[bin_idx] = np.random.randint(start, end)
+    
+    # Handle bins with no points (simply get nearest neighbor)
+    empty_bins = np.where(bin_counts == 0)[0]
+    if len(empty_bins) > 0:
+        _, nearest = tree.query(bins[empty_bins])
+        selected_indices[empty_bins] = nearest
+
+    return selected_indices.astype(int)
 
 
 # !!! This function will be used for automatic grading, don't edit the signature !!!
@@ -212,7 +255,18 @@ def get_corresponding_indices_euclid(src_points, dst_points):
     return distances_index.astype(int)
 
 
-def get_corresponding_points_normals(src_points, src_normals, dst_points, dst_normals, k, angle_weight):
+def get_corresponding_indices_normals(src_points, src_normals, dst_points, dst_normals, k, angle_weight):
+    """
+    Given two sets of (src and dest) points and their corresponding normals, matches the src to dst based on distance and normal similarity.
+
+    :param src_points: Collection of n points to move, represented by an [n, 3] numpy matrix.
+    :param src_normals: Collection of n source normals, represented by an [n, 3] numpy matrix.
+    :param dst_points: Collection of n points to move toward, represented by an [n, 3] numpy matrix.
+    :param dst_normals: Collection of n normals of the destination points, represented by an [n, 3] numpy matrix.
+    :param k: The number of closest destination points to consider for every source point.
+    :param angle_weight: The weight applied to the similarity of angles. Setting it to zero is equivalent to closest-point matching
+    :return: The indices of the destination points that match the src points.
+    """
     tree = scipy.spatial.KDTree(dst_points)
 
     # Make sure number of neighbors is not greater than the number of points
@@ -318,7 +372,8 @@ def closest_point_registration(
         src_indices = farthest_point_sampling(src_points, num_points)
         dst_indices = farthest_point_sampling(dst_points, num_points)
     elif sampling_method == "normal_space":
-        pass
+        src_indices = normal_space_sampling(src_normals, num_points)
+        dst_indices = normal_space_sampling(dst_normals, num_points)
     else:
         raise (ValueError(f"Unsupported sampling method: {sampling_method}."))
 
@@ -346,7 +401,7 @@ def closest_point_registration(
             raise (ValueError(f"Unsupported matching method: {matching_method}."))
         
     elif matching_metric == "normals":
-        new_indices = get_corresponding_points_normals(selected_src_points, selected_src_normals, selected_dst_points, selected_dst_normals, 10, 1)
+        new_indices = get_corresponding_indices_normals(selected_src_points, selected_src_normals, selected_dst_points, selected_dst_normals, 10, 1)
     else:
         raise (ValueError(f"Unsupported matching method: {matching_metric}."))
 
