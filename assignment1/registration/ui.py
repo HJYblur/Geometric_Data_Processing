@@ -67,8 +67,8 @@ class ObjectICPRegistration(bpy.types.Operator):
     matching_method: bpy.props.EnumProperty(
         name="Matching Method", description="The way to match the points from the source and target mesh",
         items=[
-            ("brute_force", "Brute Force", ""),
             ("kdtree", "KDTree", ""),
+            ("brute_force", "Brute Force", ""),
         ]
     )
 
@@ -198,6 +198,12 @@ class ObjectICPRegistration(bpy.types.Operator):
         self.draw_enum_pair(box, "Matching Metric", 'matching_metric')
         if self.matching_metric == "euclid":
             self.draw_enum_pair(box, "Matching Method", 'matching_method')
+        else:
+            row = box.row()
+            row.enabled = False
+            split = row.split(factor=0.6)
+            split.label(text="Matching Method")
+            split.prop(self, "matching_method", text="")
 
         layout.separator()
 
