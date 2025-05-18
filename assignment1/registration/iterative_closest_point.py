@@ -376,7 +376,7 @@ def closest_point_registration(
     selected_src_points = selected_src_points[boolean_list]
     selected_dst_points = selected_dst_points[boolean_list]
     selected_dst_normals = selected_dst_normals[boolean_list]
-    print("Rejected points: ", np.count_nonzero(~boolean_list))
+    # print("Rejected points: ", np.count_nonzero(~boolean_list))
 
     # Estimate a transformation based on the selected point-pairs
     if distance_metric == "POINT_TO_POINT":

@@ -106,8 +106,8 @@ def test_mesh_timing():
         # sampling_method="farthest_point",
         matching_metric="euclid",
         matching_method="kdtree",
-        p_norm="inf",  # 1, 2, inf
-        distance_metric="POINT_TO_PLANE",
+        p_norm="2",  # 1, 2, inf
+        distance_metric="POINT_TO_POINT",  # POINT_TO_POINT   POINT_TO_PLANE
     )
     end_time_1 = time.time()
 
