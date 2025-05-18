@@ -119,8 +119,8 @@ class ObjectICPRegistration(bpy.types.Operator):
         mse_value = calculate_mse(source_after, destination)
         hausdorff_value = calculate_hausdorff_distance(source_after, destination)
         # Update the properties with the calculated values
-        self.mse = f"{mse_value:.6f}"
-        self.hausdorff_distance = f"{hausdorff_value:.6f}"
+        self.mse = f"{mse_value:.2f}"
+        self.hausdorff_distance = f"{hausdorff_value:.2f}"
         return {'FINISHED'}
 
     def draw(self, context):
@@ -155,8 +155,16 @@ class ObjectICPRegistration(bpy.types.Operator):
         # TODO: If you add more features to your ICP implementation, you can provide UI to configure them
 
         layout.prop(self, 'status', text="Status", emboss=False)
-        layout.prop(self, 'mse', text="Mean Squared Error", emboss=False)
-        layout.prop(self, 'hausdorff_distance', text="Hausdorff Distance", emboss=False)
+        row = layout.row()
+        split = row.split(factor=0.6)
+        split.label(text="Mean Squared Error")
+        split.label(text=self.mse)
+
+        row = layout.row()
+        split = row.split(factor=0.6)
+        split.label(text="Hausdorff Distance")
+        split.label(text=self.hausdorff_distance)
+
 
     @staticmethod
     def menu_func(menu, context):
