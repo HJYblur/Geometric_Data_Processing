@@ -53,7 +53,7 @@ def test_cube():
         iterations=100,
         epsilon=0.0005,
         distance_metric="POINT_TO_PLANE",
-        match_method="kdtree",
+        matching_method="kdtree",
         p_norm="1",  # 1, 2, inf
     )
     # The function should have converged
@@ -105,7 +105,7 @@ def test_tetrahedron():
         iterations=100,
         epsilon=0.0005,
         distance_metric="POINT_TO_PLANE",
-        match_method="kdtree",
+        matching_method="kdtree",
         p_norm="inf",  # 1, 2, inf
     )
 

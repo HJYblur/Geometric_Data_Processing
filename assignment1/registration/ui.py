@@ -39,6 +39,30 @@ class ObjectICPRegistration(bpy.types.Operator):
             ('POINT_TO_PLANE', "Point-to-Plane", ""),
         ]
     )
+    p: bpy.props.EnumProperty(
+        name="Culling Scheme", description="The way to calculate the distance when culling",
+        items=[
+            ("1", "One", ""),
+            ("2", "Two", ""),
+            ("inf", "Inf", ""),
+        ]
+    )
+    sampling_method: bpy.props.EnumProperty(
+        name="Sampling Method", description="The way to sample the points from the target mesh",
+        items=[
+            ("random", "Random", ""),
+            ("farthest_point", "Farthest Point", ""),
+            ("normal_space", "Normal Space", ""),
+        ]
+    )
+    matching_method: bpy.props.EnumProperty(
+        name="Matching Method", description="The way to match the points from the source and target mesh",
+        items=[
+            ("brute_force", "Brute Force", ""),
+            ("kdtree", "KDTree", ""),
+        ]
+    )
+
 
     # Output parameters
     status: bpy.props.StringProperty(
@@ -96,6 +120,9 @@ class ObjectICPRegistration(bpy.types.Operator):
                 self.iterations, self.epsilon,
                 self.distance_metric,
                 # TODO: Any additional configuration options you add can be passed in here
+                p_norms = self.p,
+                sampling_method = self.sampling_method,
+                matching_method = self.matching_method,
             )
         except Exception as error:
             self.report({'WARNING'}, f"Rigid registration failed with error '{error}'")
@@ -150,6 +177,9 @@ class ObjectICPRegistration(bpy.types.Operator):
         box.prop(self, 'k')
         box.prop(self, 'num_points')
         box.prop(self, 'distance_metric', text="")
+        box.prop(self, 'p', text="Culling Scheme")
+        box.prop(self, 'sampling_method', text="")
+        box.prop(self, 'matching_method', text="")
         layout.separator()
 
         # TODO: If you add more features to your ICP implementation, you can provide UI to configure them
