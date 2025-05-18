@@ -515,8 +515,7 @@ def calculate_mse(source: bmesh.types.BMesh, destination: bmesh.types.BMesh) -> 
     """
     src_points = numpy_verts(source)
     dst_points = numpy_verts(destination)
-    tree = scipy.spatial.KDTree(dst_points)
-    _, indices = tree.query(src_points, k=1)
+    indices = get_corresponding_indices_euclid(src_points, dst_points)
     closest_dst_points = dst_points[indices]
     squared_distances = np.sum((src_points - closest_dst_points) ** 2, axis=1)
     mse_value = np.mean(squared_distances)
@@ -535,15 +534,13 @@ def calculate_hausdorff_distance(source: bmesh.types.BMesh, destination: bmesh.t
     dst_points = numpy_verts(destination)
 
     # Forward Hausdorff distance (source to destination)
-    tree_dst = scipy.spatial.KDTree(dst_points)
-    _, indices_fwd = tree_dst.query(src_points, k=1)
+    indices_fwd = get_corresponding_indices_euclid(src_points, dst_points)
     closest_dst_points = dst_points[indices_fwd]
     forward_distances = np.sqrt(np.sum((src_points - closest_dst_points) ** 2, axis=1))
     forward_hausdorff = np.max(forward_distances)
 
     # Backward Hausdorff distance (destination to source)
-    tree_src = scipy.spatial.KDTree(src_points)
-    _, indices_back = tree_src.query(dst_points, k=1)
+    indices_back = get_corresponding_indices_euclid(dst_points, src_points)
     closest_src_points = src_points[indices_back]
     backward_distances = np.sqrt(np.sum((dst_points - closest_src_points) ** 2, axis=1))
     backward_hausdorff = np.max(backward_distances)
