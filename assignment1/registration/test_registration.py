@@ -102,8 +102,7 @@ def test_mesh_timing():
         num_points=6145,
         iterations=100,
         epsilon=0.0005,
-        sampling_method="random",
-        # sampling_method="farthest_point",
+        sampling_method="random",  # farthest_point
         matching_metric="euclid",
         matching_method="kdtree",
         p_norm="2",  # 1, 2, inf
