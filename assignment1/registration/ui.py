@@ -39,10 +39,50 @@ class ObjectICPRegistration(bpy.types.Operator):
             ('POINT_TO_PLANE', "Point-to-Plane", ""),
         ]
     )
+    p: bpy.props.EnumProperty(
+        name="Culling Scheme", description="The way to calculate the distance when culling",
+        items=[
+            ("1", "One", ""),
+            ("2", "Two", ""),
+            ("inf", "Inf", ""),
+        ]
+    )
+    sampling_method: bpy.props.EnumProperty(
+        name="Sampling Method", description="The way to sample the points from the target mesh",
+        items=[
+            ("random", "Random", ""),
+            ("farthest_point", "Farthest Point", ""),
+            ("normal_space", "Normal Space", ""),
+        ]
+    )
+    matching_metric: bpy.props.EnumProperty(
+        name="Matching Metric",
+        description="The way to match the points from the source and target mesh",
+        items=[
+            ("euclid", "Euclidean", ""),
+            ("normals", "Normals", "")
+        ]
+    )
+
+    matching_method: bpy.props.EnumProperty(
+        name="Matching Method", description="The way to match the points from the source and target mesh",
+        items=[
+            ("kdtree", "KDTree", ""),
+            ("brute_force", "Brute Force", ""),
+        ]
+    )
+
 
     # Output parameters
     status: bpy.props.StringProperty(
         name="Registration Status", default="Status not set"
+    )
+
+    mse: bpy.props.StringProperty(
+        name="Mean Squared Error", default="Not calculated"
+    )
+    hausdorff_distance: bpy.props.StringProperty(
+        name="Hausdorff Distance", default="Not calculated"
     )
 
     @classmethod
@@ -89,6 +129,10 @@ class ObjectICPRegistration(bpy.types.Operator):
                 self.iterations, self.epsilon,
                 self.distance_metric,
                 # TODO: Any additional configuration options you add can be passed in here
+                p_norms = self.p,
+                sampling_method = self.sampling_method,
+                matching_method = self.matching_method,
+                matching_metric = self.matching_metric,
             )
         except Exception as error:
             self.report({'WARNING'}, f"Rigid registration failed with error '{error}'")
@@ -105,8 +149,22 @@ class ObjectICPRegistration(bpy.types.Operator):
         source_object.data.update()
 
         # BONUS: You could do more with this list of transformations; producing an animation for example!
-
+        source_after = bmesh.new()
+        source_after.from_mesh(source_object.data)
+        source_after.transform(source_object.matrix_world)
+        # Calculate the MSE and Hausdorff distance
+        mse_value = calculate_mse(source_after, destination)
+        hausdorff_value = calculate_hausdorff_distance(source_after, destination)
+        # Update the properties with the calculated values
+        self.mse = f"{mse_value:.2f}"
+        self.hausdorff_distance = f"{hausdorff_value:.2f}"
         return {'FINISHED'}
+
+    def draw_enum_pair(self, layout, label, prop_name):
+        row = layout.row()
+        split = row.split(factor=0.6)
+        split.label(text=label)
+        split.prop(self, prop_name, text="")
 
     def draw(self, context):
         layout = self.layout
@@ -132,14 +190,36 @@ class ObjectICPRegistration(bpy.types.Operator):
         # Other hyperparameters
         box = layout.box()
         box.label(text="Hyperparameters")
-        box.prop(self, 'k')
-        box.prop(self, 'num_points')
-        box.prop(self, 'distance_metric', text="")
+        self.draw_enum_pair( box,"Point Rejection Coefficient", "k")
+        self.draw_enum_pair(box, "Number of Points", "num_points")
+        self.draw_enum_pair(box, "Distance Metric","distance_metric")
+        self.draw_enum_pair(box, "Culling Scheme", "p")
+        self.draw_enum_pair(box, "Sampling Method", 'sampling_method')
+        self.draw_enum_pair(box, "Matching Metric", 'matching_metric')
+        if self.matching_metric == "euclid":
+            self.draw_enum_pair(box, "Matching Method", 'matching_method')
+        else:
+            row = box.row()
+            row.enabled = False
+            split = row.split(factor=0.6)
+            split.label(text="Matching Method")
+            split.prop(self, "matching_method", text="")
+
         layout.separator()
 
         # TODO: If you add more features to your ICP implementation, you can provide UI to configure them
 
         layout.prop(self, 'status', text="Status", emboss=False)
+        row = layout.row()
+        split = row.split(factor=0.6)
+        split.label(text="Mean Squared Error")
+        split.label(text=self.mse)
+
+        row = layout.row()
+        split = row.split(factor=0.6)
+        split.label(text="Hausdorff Distance")
+        split.label(text=self.hausdorff_distance)
+
 
     @staticmethod
     def menu_func(menu, context):
@@ -149,4 +229,3 @@ class ObjectICPRegistration(bpy.types.Operator):
     def register(cls):
         # Add a menu item ('Layout -> Object -> Rigid Registration with ICP')
         bpy.types.VIEW3D_MT_object.append(cls.menu_func)
-
