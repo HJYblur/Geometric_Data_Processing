@@ -45,6 +45,13 @@ class ObjectICPRegistration(bpy.types.Operator):
         name="Registration Status", default="Status not set"
     )
 
+    mse: bpy.props.StringProperty(
+        name="Mean Squared Error", default="Not calculated"
+    )
+    hausdorff_distance: bpy.props.StringProperty(
+        name="Hausdorff Distance", default="Not calculated"
+    )
+
     @classmethod
     def poll(self, context):
         meshes = [obj for obj in context.view_layer.objects if obj.type == 'MESH']
@@ -105,7 +112,15 @@ class ObjectICPRegistration(bpy.types.Operator):
         source_object.data.update()
 
         # BONUS: You could do more with this list of transformations; producing an animation for example!
-
+        source_after = bmesh.new()
+        source_after.from_mesh(source_object.data)
+        source_after.transform(source_object.matrix_world)
+        # Calculate the MSE and Hausdorff distance
+        mse_value = calculate_mse(source_after, destination)
+        hausdorff_value = calculate_hausdorff_distance(source_after, destination)
+        # Update the properties with the calculated values
+        self.mse = f"{mse_value:.6f}"
+        self.hausdorff_distance = f"{hausdorff_value:.6f}"
         return {'FINISHED'}
 
     def draw(self, context):
@@ -140,6 +155,8 @@ class ObjectICPRegistration(bpy.types.Operator):
         # TODO: If you add more features to your ICP implementation, you can provide UI to configure them
 
         layout.prop(self, 'status', text="Status", emboss=False)
+        layout.prop(self, 'mse', text="Mean Squared Error", emboss=False)
+        layout.prop(self, 'hausdorff_distance', text="Hausdorff Distance", emboss=False)
 
     @staticmethod
     def menu_func(menu, context):
@@ -149,4 +166,3 @@ class ObjectICPRegistration(bpy.types.Operator):
     def register(cls):
         # Add a menu item ('Layout -> Object -> Rigid Registration with ICP')
         bpy.types.VIEW3D_MT_object.append(cls.menu_func)
-

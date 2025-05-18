@@ -331,7 +331,7 @@ def closest_point_registration(
     # DONE: HINT: scipy.spatial.KDTree makes this much faster!
 
     # "brute_force" or "kdtree"
-    
+
     matching_metric = kwargs.get("matching_metric", "euclid")
     if matching_metric == "euclid":
         matching_method = kwargs.get("matching_method", "kdtree")
@@ -344,7 +344,7 @@ def closest_point_registration(
             _, new_indices = tree.query(selected_src_points, k=k_neighbors)
         else:
             raise (ValueError(f"Unsupported matching method: {matching_method}."))
-        
+
     elif matching_metric == "normals":
         new_indices = get_corresponding_points_normals(selected_src_points, selected_src_normals, selected_dst_points, selected_dst_normals, 10, 1)
     else:
@@ -448,6 +448,54 @@ def iterative_closest_point_registration(
         transformations.append(transformation)
 
     return transformations
+
+
+def calculate_mse(source: bmesh.types.BMesh, destination: bmesh.types.BMesh) -> float:
+    """
+    Calculate Mean Squared Error between source and destination meshes.
+
+    :param source: Source mesh
+    :param destination: Destination mesh
+    :return: Mean Squared Error value
+    """
+    src_points = numpy_verts(source)
+    dst_points = numpy_verts(destination)
+    tree = scipy.spatial.KDTree(dst_points)
+    _, indices = tree.query(src_points, k=1)
+    closest_dst_points = dst_points[indices]
+    squared_distances = np.sum((src_points - closest_dst_points) ** 2, axis=1)
+    mse_value = np.mean(squared_distances)
+    return mse_value
+
+
+def calculate_hausdorff_distance(source: bmesh.types.BMesh, destination: bmesh.types.BMesh) -> float:
+    """
+    Calculate Hausdorff Distance between source and destination meshes.
+
+    :param source: Source mesh
+    :param destination: Destination mesh
+    :return: Hausdorff Distance value
+    """
+    src_points = numpy_verts(source)
+    dst_points = numpy_verts(destination)
+
+    # Forward Hausdorff distance (source to destination)
+    tree_dst = scipy.spatial.KDTree(dst_points)
+    _, indices_fwd = tree_dst.query(src_points, k=1)
+    closest_dst_points = dst_points[indices_fwd]
+    forward_distances = np.sqrt(np.sum((src_points - closest_dst_points) ** 2, axis=1))
+    forward_hausdorff = np.max(forward_distances)
+
+    # Backward Hausdorff distance (destination to source)
+    tree_src = scipy.spatial.KDTree(src_points)
+    _, indices_back = tree_src.query(dst_points, k=1)
+    closest_src_points = src_points[indices_back]
+    backward_distances = np.sqrt(np.sum((dst_points - closest_src_points) ** 2, axis=1))
+    backward_hausdorff = np.max(backward_distances)
+
+    # True Hausdorff distance is the maximum of forward and backward
+    hausdorff_value = max(forward_hausdorff, backward_hausdorff)
+    return hausdorff_value
 
 
 def net_transformation(transformations: list[mathutils.Matrix]) -> mathutils.Matrix:
