@@ -55,6 +55,15 @@ class ObjectICPRegistration(bpy.types.Operator):
             ("normal_space", "Normal Space", ""),
         ]
     )
+    matching_metric: bpy.props.EnumProperty(
+        name="Matching Metric",
+        description="The way to match the points from the source and target mesh",
+        items=[
+            ("euclid", "Euclidean", ""),
+            ("normals", "Normals", "")
+        ]
+    )
+
     matching_method: bpy.props.EnumProperty(
         name="Matching Method", description="The way to match the points from the source and target mesh",
         items=[
@@ -123,6 +132,7 @@ class ObjectICPRegistration(bpy.types.Operator):
                 p_norms = self.p,
                 sampling_method = self.sampling_method,
                 matching_method = self.matching_method,
+                matching_metric = self.matching_metric,
             )
         except Exception as error:
             self.report({'WARNING'}, f"Rigid registration failed with error '{error}'")
@@ -150,6 +160,12 @@ class ObjectICPRegistration(bpy.types.Operator):
         self.hausdorff_distance = f"{hausdorff_value:.2f}"
         return {'FINISHED'}
 
+    def draw_enum_pair(self, label, prop_name):
+        row = self.layout.row()
+        split = row.split(factor=0.6)
+        split.label(text=label)
+        split.prop(self, prop_name, text="")
+
     def draw(self, context):
         layout = self.layout
 
@@ -174,15 +190,15 @@ class ObjectICPRegistration(bpy.types.Operator):
         # Other hyperparameters
         box = layout.box()
         box.label(text="Hyperparameters")
-        box.prop(self, 'k')
-        box.prop(self, 'num_points')
-        box.prop(self, 'distance_metric', text="")
-        row = layout.row()
-        split = row.split(factor=0.6)
-        split.label(text="Culling Scheme")
-        split.prop(self, 'p', text="")
-        box.prop(self, 'sampling_method', text="")
-        box.prop(self, 'matching_method', text="")
+        self.draw_enum_pair( "Point Rejection Coefficient", "k")
+        self.draw_enum_pair("Number of Points", "num_points")
+        self.draw_enum_pair("Distance Metric","distance_metric")
+        self.draw_enum_pair("Culling Scheme", "p")
+        self.draw_enum_pair("Sampling Method", 'sampling_method')
+        self.draw_enum_pair("Matrching Metric", 'matching_metric')
+        if self.sampling_method == "euclid":
+            self.draw_enum_pair("Matching Method", 'matching_method')
+
         layout.separator()
 
         # TODO: If you add more features to your ICP implementation, you can provide UI to configure them
