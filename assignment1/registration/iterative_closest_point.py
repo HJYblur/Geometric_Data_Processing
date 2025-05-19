@@ -8,6 +8,7 @@ import numpy as np
 import scipy
 from collections import defaultdict
 
+
 def numpy_verts(mesh: bmesh.types.BMesh) -> np.ndarray:
     """
     Extracts a numpy array of (x, y, z) vertices from a blender mesh
@@ -39,24 +40,24 @@ def numpy_normals(mesh: bmesh.types.BMesh) -> np.ndarray:
 
 
 def farthest_point_sampling(points, k):
-    centroids = []
+    n = len(points)
     centroids_indices = []
-
-    # Randomly select the first centroid
-    first_index = np.random.randint(len(points))
+    # Start with a random point
+    first_index = np.random.randint(n)
     centroids_indices.append(first_index)
-    centroids.append(points[first_index])
-
-    # Fill the centroid list by selecting the farthest point
-    for _ in range(k - 1):
-        distances = []
-        for x in points:
-            # Find the min distance from point to current centroids
-            min_dis_to_centroids = min(np.linalg.norm(x - centroids, axis=1))
-            distances.append(min_dis_to_centroids)
-        farthest_index = np.argmax(distances)
-        centroids.append(points[farthest_index])
+    # Initialize distances to inf
+    min_distances = np.full(n, np.inf)
+    # Compute distances from all points to the first centroid
+    diff = points - points[first_index]
+    min_distances = np.linalg.norm(diff, axis=1)
+    for _ in range(1, k):
+        # Select the point with the maximum distance to any centroid so far
+        farthest_index = np.argmax(min_distances)
         centroids_indices.append(farthest_index)
+        # Update the min_distances array
+        diff = points - points[farthest_index]
+        distances = np.linalg.norm(diff, axis=1)
+        min_distances = np.minimum(min_distances, distances)
     return np.array(centroids_indices)
 
 
@@ -66,34 +67,33 @@ def normal_space_sampling(normals: np.ndarray, n: int):
 
     # Generate n "evenly spaced" points on a sphere, adapted from: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
     indices = np.arange(n, dtype=np.float64) + 0.5
-    phi = np.arccos(1 - 2 * indices / n)  
-    theta = np.pi * (1 + 5**0.5) * indices  
-    bins = np.column_stack([
-        np.sin(phi) * np.cos(theta),
-        np.sin(phi) * np.sin(theta),
-        np.cos(phi)
-    ])
+    phi = np.arccos(1 - 2 * indices / n)
+    theta = np.pi * (1 + 5**0.5) * indices
+    bins = np.column_stack(
+        [np.sin(phi) * np.cos(theta), np.sin(phi) * np.sin(theta), np.cos(phi)]
+    )
 
-    
     # Place normals to bins (the points on the sphere) using kdtree
     tree = scipy.spatial.KDTree(bins)
     bin_indices = tree.query(unit_normals)[1]
     bin_counts = np.bincount(bin_indices, minlength=n)
-    
+
     valid_bins = np.where(bin_counts > 0)[0]
 
     selected_indices = np.zeros(n, dtype=np.int64)
-    
-    cum_counts = np.cumsum(bin_counts) # This is the "end index" of each bin
+
+    cum_counts = np.cumsum(bin_counts)  # This is the "end index" of each bin
     start_indices = np.zeros(n, dtype=np.int64)
-    start_indices[1:] = cum_counts[:-1] # Start of each bin is the end of the previous bin
+    start_indices[1:] = cum_counts[
+        :-1
+    ]  # Start of each bin is the end of the previous bin
 
     # select a point from each bin randomly
     for bin_idx in valid_bins:
         start = start_indices[bin_idx]
         end = cum_counts[bin_idx]
         selected_indices[bin_idx] = np.random.randint(start, end)
-    
+
     # Handle bins with no points (simply get nearest neighbor)
     empty_bins = np.where(bin_counts == 0)[0]
     if len(empty_bins) > 0:
@@ -243,19 +243,19 @@ def get_corresponding_indices_euclid(src_points, dst_points):
         dst_points (numpy.ndarray): A 2D array of shape (M, D) representing the destination points.
 
     Returns:
-        numpy.ndarray: An array containing the indices of the closest points in `dst_points` 
+        numpy.ndarray: An array containing the indices of the closest points in `dst_points`
                        for each point in `src_points`.
     """
     distances_index = np.zeros(len(src_points))
     for i in range(len(src_points)):
-        distances = np.linalg.norm(
-            src_points[i] - dst_points, axis=1
-        )
+        distances = np.linalg.norm(src_points[i] - dst_points, axis=1)
         distances_index[i] = np.argmin(distances)
     return distances_index.astype(int)
 
 
-def get_corresponding_indices_normals(src_points, src_normals, dst_points, dst_normals, k, angle_weight):
+def get_corresponding_indices_normals(
+    src_points, src_normals, dst_points, dst_normals, k, angle_weight
+):
     """
     Given two sets of (src and dest) points and their corresponding normals, matches the src to dst based on distance and normal similarity.
 
@@ -284,14 +284,10 @@ def get_corresponding_indices_normals(src_points, src_normals, dst_points, dst_n
     dst_normal_candidates = dst_normals[all_indices]
 
     # calculate the distance between the candidate pts and the source pts
-    dist_costs = np.linalg.norm(
-        dst_candidates - src_points[:, np.newaxis, :], 
-        axis=2
-    )
+    dist_costs = np.linalg.norm(dst_candidates - src_points[:, np.newaxis, :], axis=2)
     # calculate the custom angle cost between the candidate normals and the source normals
     angle_costs = 1 - np.sum(
-        src_normals[:, np.newaxis, :] * dst_normal_candidates, 
-        axis=2
+        src_normals[:, np.newaxis, :] * dst_normal_candidates, axis=2
     )
 
     total_costs = dist_costs + angle_weight * angle_costs
@@ -392,7 +388,9 @@ def closest_point_registration(
         matching_method = kwargs.get("matching_method", "kdtree")
 
         if matching_method == "brute_force":
-            new_indices = get_corresponding_indices_euclid(selected_src_points ,selected_dst_points)
+            new_indices = get_corresponding_indices_euclid(
+                selected_src_points, selected_dst_points
+            )
         elif matching_method == "kdtree":
             k_neighbors = 1
             tree = scipy.spatial.KDTree(selected_dst_points)
@@ -401,7 +399,14 @@ def closest_point_registration(
             raise (ValueError(f"Unsupported matching method: {matching_method}."))
 
     elif matching_metric == "normals":
-        new_indices = get_corresponding_indices_normals(selected_src_points, selected_src_normals, selected_dst_points, selected_dst_normals, 10, 1)
+        new_indices = get_corresponding_indices_normals(
+            selected_src_points,
+            selected_src_normals,
+            selected_dst_points,
+            selected_dst_normals,
+            10,
+            1,
+        )
     else:
         raise (ValueError(f"Unsupported matching method: {matching_metric}."))
 
@@ -413,13 +418,9 @@ def closest_point_registration(
     # DONE: use different p-norms for culling
     p_norms = kwargs.get("p_norms", "2")  # 1, 2, inf
     if p_norms == "1":
-        distances = np.abs(selected_src_points - selected_dst_points).sum(
-            axis=1
-        )
+        distances = np.abs(selected_src_points - selected_dst_points).sum(axis=1)
     elif p_norms == "2":
-        distances = np.linalg.norm(
-            selected_src_points - selected_dst_points, axis=1
-        )
+        distances = np.linalg.norm(selected_src_points - selected_dst_points, axis=1)
     else:
         distances = np.linalg.norm(
             selected_src_points - selected_dst_points, axis=1, ord=np.inf
@@ -436,9 +437,7 @@ def closest_point_registration(
 
     # Estimate a transformation based on the selected point-pairs
     if distance_metric == "POINT_TO_POINT":
-        return point_to_point_transformation(
-            selected_src_points, selected_dst_points
-        )
+        return point_to_point_transformation(selected_src_points, selected_dst_points)
     elif distance_metric == "POINT_TO_PLANE":
         return point_to_plane_transformation(
             selected_src_points,
@@ -486,7 +485,7 @@ def iterative_closest_point_registration(
     """
     transformations = []
     for i in range(iterations):
-        #print(f"Iteration{i}\n")
+        # print(f"Iteration{i}\n")
 
         # Find a transformation which moves the source mesh closer to the target mesh
         transformation = closest_point_registration(
@@ -522,7 +521,9 @@ def calculate_mse(source: bmesh.types.BMesh, destination: bmesh.types.BMesh) -> 
     return mse_value
 
 
-def calculate_hausdorff_distance(source: bmesh.types.BMesh, destination: bmesh.types.BMesh) -> float:
+def calculate_hausdorff_distance(
+    source: bmesh.types.BMesh, destination: bmesh.types.BMesh
+) -> float:
     """
     Calculate Hausdorff Distance between source and destination meshes.
 
