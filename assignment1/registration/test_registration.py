@@ -99,14 +99,14 @@ def test_mesh_timing():
         source,
         destination,
         k=2,
-        num_points=6145,
+        num_points=1000,
         iterations=100,
         epsilon=0.0005,
-        sampling_method="random",  # farthest_point
+        sampling_method="farthest_point",  # farthest_point
         matching_metric="euclid",
         matching_method="kdtree",
         p_norm="2",  # 1, 2, inf
-        distance_metric="POINT_TO_POINT",  # POINT_TO_POINT   POINT_TO_PLANE
+        distance_metric="POINT_TO_PLANE",  # POINT_TO_POINT   POINT_TO_PLANE
     )
     end_time_1 = time.time()
 

@@ -39,24 +39,24 @@ def numpy_normals(mesh: bmesh.types.BMesh) -> np.ndarray:
 
 
 def farthest_point_sampling(points, k):
-    centroids = []
+    n = len(points)
     centroids_indices = []
-
-    # Randomly select the first centroid
-    first_index = np.random.randint(len(points))
+    # Start with a random point
+    first_index = np.random.randint(n)
     centroids_indices.append(first_index)
-    centroids.append(points[first_index])
-
-    # Fill the centroid list by selecting the farthest point
-    for _ in range(k - 1):
-        distances = []
-        for x in points:
-            # Find the min distance from point to current centroids
-            min_dis_to_centroids = min(np.linalg.norm(x - centroids, axis=1))
-            distances.append(min_dis_to_centroids)
-        farthest_index = np.argmax(distances)
-        centroids.append(points[farthest_index])
+    # Initialize distances to inf
+    min_distances = np.full(n, np.inf)
+    # Compute distances from all points to the first centroid
+    diff = points - points[first_index]
+    min_distances = np.linalg.norm(diff, axis=1)
+    for _ in range(1, k):
+        # Select the point with the maximum distance to any centroid so far
+        farthest_index = np.argmax(min_distances)
         centroids_indices.append(farthest_index)
+        # Update the min_distances array
+        diff = points - points[farthest_index]
+        distances = np.linalg.norm(diff, axis=1)
+        min_distances = np.minimum(min_distances, distances)
     return np.array(centroids_indices)
 
 
