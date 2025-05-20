@@ -129,7 +129,6 @@ def point_to_point_transformation(
 
     # DONE: Find the covariance between the source and destination coordinates
     covariance = source_points.T @ destination_points
-    # print("Covariance matrix: \n", covariance.shape)
 
     # DONE: Find a rotation matrix using SVD
     # M = U D V^h
@@ -151,7 +150,6 @@ def point_to_point_transformation(
         transformation[i][3] = translation[i]
 
     return transformation
-    # return mathutils.Matrix.Identity(4)
 
 
 # !!! This function will be used for automatic grading, don't edit the signature !!!
@@ -211,7 +209,6 @@ def point_to_plane_transformation(
     r = answer[0:3]
     t = answer[3:6]
 
-    # R = (source_points + np.cross(r, source_points)).T @ source_points
     R = np.array([[1, -r[2], r[1]], [r[2], 1, -r[0]], [-r[1], r[0], 1]])
 
     u, _, vh = np.linalg.svd(R)
@@ -270,7 +267,7 @@ def get_corresponding_indices_normals(
 
     # Ensure all_indices array is 2 dimensional
     if k == 1:
-        all_indices = all_indices[:, np.newaxis]  # (N,) → (N, 1)
+        all_indices = all_indices[:, np.newaxis]  # (N,) -> (N, 1)
 
     # dst_candidates shape: (N,k,3), normals shape: (N,k,3)
     dst_candidates = dst_points[all_indices]
@@ -334,8 +331,8 @@ def closest_point_registration(
     """
     # DONE: Find a transformation matrix which moves the source mesh closer to the destination mesh
     # DONE: Read the parameters from the command line
-
     # DONE: Select some points from both meshes
+
     src_points = numpy_verts(source)
     src_normals = numpy_normals(source)
     dst_points = numpy_verts(destination)
@@ -350,7 +347,6 @@ def closest_point_registration(
     # HINT: Make sure not to select more points than are in the mesh or fewer than one point
     num_points = np.clip(num_points, 1, len(src_points))
 
-    # TODO: Use farthest-point sampling / normal-space sampling for sampling
     sampling_method = kwargs.get(
         "sampling_method", "random"
     )  #  or "farthest_point" or "normal_space"
@@ -418,15 +414,12 @@ def closest_point_registration(
         )
     median_distance = np.median(distances)
     threshold = k * median_distance
-    # print(
-    #     f"Median distance: {median_distance}, Threshold for rejecting outlier point-pairs: {threshold}"
-    # )
+
     boolean_list = distances < threshold
     selected_src_points = selected_src_points[boolean_list]
     selected_dst_points = selected_dst_points[boolean_list]
     selected_dst_normals = selected_dst_normals[boolean_list]
 
-    #print(len([0 for b in boolean_list if not b]))
     # Estimate a transformation based on the selected point-pairs
     if distance_metric == "POINT_TO_POINT":
         return point_to_point_transformation(selected_src_points, selected_dst_points)
@@ -436,7 +429,6 @@ def closest_point_registration(
             selected_dst_points,
             selected_dst_normals,
         )
-        # raise NotImplementedError("Implement point-to-plant estimation")
     else:
         raise Exception(f"Unrecognized distance metric '{distance_metric}'")
 
@@ -477,8 +469,6 @@ def iterative_closest_point_registration(
     """
     transformations = []
     for i in range(iterations):
-        # print(f"Iteration{i}\n")
-
         # Find a transformation which moves the source mesh closer to the target mesh
         transformation = closest_point_registration(
             source, destination, k, num_points, distance_metric, **kwargs
