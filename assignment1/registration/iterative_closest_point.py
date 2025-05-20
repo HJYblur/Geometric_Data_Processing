@@ -6,7 +6,6 @@ import bmesh
 import mathutils
 import numpy as np
 import scipy
-from collections import defaultdict
 
 
 def numpy_verts(mesh: bmesh.types.BMesh) -> np.ndarray:
@@ -84,10 +83,7 @@ def normal_space_sampling(normals: np.ndarray, n: int):
 
     cum_counts = np.cumsum(bin_counts)  # This is the "end index" of each bin
     start_indices = np.zeros(n, dtype=np.int64)
-    start_indices[1:] = cum_counts[
-        :-1
-    ]  # Start of each bin is the end of the previous bin
-
+    start_indices[1:] = cum_counts[:-1] # Start of each bin is the end of the previous bin
     # select a point from each bin randomly
     for bin_idx in valid_bins:
         start = start_indices[bin_idx]
@@ -238,12 +234,9 @@ def get_corresponding_indices_euclid(src_points, dst_points):
     Finds the indices of the closest points in the destination point set for each point in the source point set
     using Euclidean distance.
 
-    Args:
-        src_points (numpy.ndarray): A 2D array of shape (N, D) representing the source points
-        dst_points (numpy.ndarray): A 2D array of shape (M, D) representing the destination points.
-
-    Returns:
-        numpy.ndarray: An array containing the indices of the closest points in `dst_points`
+    :param src_points: (numpy.ndarray): A 2D array of shape (N, D) representing the source points
+    :param dst_points: (numpy.ndarray): A 2D array of shape (M, D) representing the destination points.
+    :return: numpy.ndarray: An array containing the indices of the closest points in `dst_points` 
                        for each point in `src_points`.
     """
     distances_index = np.zeros(len(src_points))
@@ -382,7 +375,6 @@ def closest_point_registration(
     # DONE: HINT: scipy.spatial.KDTree makes this much faster!
 
     # "brute_force" or "kdtree"
-
     matching_metric = kwargs.get("matching_metric", "euclid")
     if matching_metric == "euclid":
         matching_method = kwargs.get("matching_method", "kdtree")
@@ -397,7 +389,6 @@ def closest_point_registration(
             _, new_indices = tree.query(selected_src_points, k=k_neighbors)
         else:
             raise (ValueError(f"Unsupported matching method: {matching_method}."))
-
     elif matching_metric == "normals":
         new_indices = get_corresponding_indices_normals(
             selected_src_points,
@@ -435,6 +426,7 @@ def closest_point_registration(
     selected_dst_points = selected_dst_points[boolean_list]
     selected_dst_normals = selected_dst_normals[boolean_list]
 
+    #print(len([0 for b in boolean_list if not b]))
     # Estimate a transformation based on the selected point-pairs
     if distance_metric == "POINT_TO_POINT":
         return point_to_point_transformation(selected_src_points, selected_dst_points)
